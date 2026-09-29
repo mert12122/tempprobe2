@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Temperature Probe — Upside Down Learning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#F4ECD8;
+    --brown:#231509;
+    --tan:#8B6F47;
+    --stone:#231509;
+    --rule:#C9B693;
+    --paper:#FBF6EA;
+    --red:#C4553B;
+    --crust:#8A7A64;
+    --mantle:#C9794A;
+    --outer:#E7A33B;
+    --inner:#F3D27A;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--parchment);color:var(--brown);font-family:'Courier Prime','Courier New',monospace;font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{width:1000px;padding:14px 18px 10px;transform-origin:top left}
+html,body{overflow:hidden}
+  header{border-bottom:2px solid var(--brown);padding-bottom:6px;margin-bottom:12px}
+  h1{font-size:1.3rem;font-weight:700;letter-spacing:.06em;margin:0}
+  .sub{color:var(--stone);font-size:.8rem;font-weight:700;margin-top:4px;letter-spacing:.04em}
+
+  .stage{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;align-items:start}
+  
+
+  .box{border:2px solid var(--brown);background:var(--paper);padding:8px 12px}
+  .box h2{font-size:.7rem;letter-spacing:.14em;margin:0 0 6px;color:var(--brown);font-weight:700}
+  canvas{display:block;width:100%;background:#FFFFFF;border:1px solid var(--rule)}
+  .hint{font-size:.74rem;font-weight:700;color:var(--stone);margin-top:4px}
+
+  .panel{display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px dotted var(--rule)}
+  .row:last-child{border-bottom:0}
+  .row .k{font-size:.84rem;color:var(--stone);font-weight:700}
+  .row .v{font-size:1.05rem;font-weight:700;font-variant-numeric:tabular-nums}
+
+  input[type=range]{width:100%;accent-color:var(--brown)}
+  .ends{display:flex;justify-content:space-between;font-size:.78rem;font-weight:700;color:var(--stone)}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+  button{font-family:inherit;font-size:.84rem;font-weight:700;background:var(--tan);color:#FBF6EA;border:2px solid var(--brown);padding:6px 10px;cursor:pointer}
+  button:hover{background:var(--brown);color:var(--parchment)}
+  button:focus-visible,input:focus-visible{outline:3px solid var(--tan);outline-offset:2px}
+  button.ghost{background:var(--paper);color:var(--brown);border-style:dashed;font-weight:400}
+  button.wide{grid-column:1/-1}
+  button.on{background:var(--brown);color:var(--parchment)}
+
+  footer{margin-top:8px;padding-top:6px;border-top:1px solid var(--rule);font-size:.78rem;font-weight:700;color:var(--stone);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>TEMPERATURE PROBE</h1>
+    <div class="sub">Lower the probe and read the temperature at each depth.</div>
+  </header>
+
+  <div class="stage">
+   <div class="panel">
+    <div class="box">
+      <h2 id="viewTitle">CROSS-SECTION OF EARTH</h2>
+      <canvas id="earth" aria-label="Cross-section of Earth with a temperature probe"></canvas>
+      <div class="hint" id="viewHint">The crust is too thin to see at this scale. Use Zoom to view the top 100 km.</div>
+    </div>
+    <div class="box">
+      <h2>TEMPERATURE WITH DEPTH</h2>
+      <canvas id="graph" aria-label="Graph of temperature against depth"></canvas>
+    </div>
+   </div>
+
+    <div class="panel">
+      <div class="box">
+        <h2>READINGS</h2>
+        <div class="row"><span class="k">Depth</span><span class="v" id="dep">0 km</span></div>
+        <div class="row"><span class="k">Layer</span><span class="v" id="lay">Crust</span></div>
+        <div class="row"><span class="k">State</span><span class="v" id="sta">Solid</span></div>
+        <div class="row"><span class="k">Temperature</span><span class="v" id="tmp">15 °C</span></div>
+      </div>
+
+      <div class="box">
+        <h2><label for="depth">PROBE DEPTH</label></h2>
+        <input type="range" id="depth" min="0" max="6371" step="1" value="0">
+        <div class="ends"><span id="endL">0 km</span><span id="endR">6,371 km</span></div>
+        <div class="btns">
+          <button id="dMinus">− 1 km</button>
+          <button id="dPlus">+ 1 km</button>
+          <button id="zoom" class="wide" aria-pressed="false">Zoom: top 100 km</button>
+          <button id="reset" class="ghost wide">Start over</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    <span>Upside Down Learning</span>
+    <span>Interior temperatures are scientific estimates.</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var css=getComputedStyle(document.documentElement);
+  function c(n){return css.getPropertyValue(n).trim();}
+  var FONT="'Courier Prime','Courier New',monospace";
+
+  var TEMP=[[0,15],[35,715],[100,1300],[410,1500],[660,1650],[2700,2600],[2890,3800],[5150,5000],[6371,5400]];
+  function tAt(d){for(var i=0;i<TEMP.length-1;i++){var a=TEMP[i],b=TEMP[i+1];if(d>=a[0]&&d<=b[0])return a[1]+(b[1]-a[1])*(d-a[0])/(b[0]-a[0]);}return 5400;}
+  function layer(d){if(d<35)return["Crust","Solid"];if(d<2890)return["Mantle","Solid"];if(d<5150)return["Outer core","Liquid"];return["Inner core","Solid"];}
+
+  var depth=0,zoom=false;
+  var slider=document.getElementById("depth"),zb=document.getElementById("zoom");
+
+  function setup(cv,h){var r=window.devicePixelRatio||1,w=cv.clientWidth;cv.width=w*r;cv.height=h*r;cv.style.height=h+"px";var x=cv.getContext("2d");x.setTransform(r,0,0,r,0,0);return[x,w,h];}
+
+  function setDepth(d){
+    var mx=zoom?100:6371;depth=Math.max(0,Math.min(mx,Math.round(d)));slider.value=depth;
+    document.getElementById("dep").textContent=depth.toLocaleString()+" km";
+    document.getElementById("tmp").textContent=Math.round(tAt(depth)).toLocaleString()+" °C";
+    var L=layer(depth);document.getElementById("lay").textContent=L[0];document.getElementById("sta").textContent=L[1];
+    draw();
+  }
+  slider.addEventListener("input",function(e){setDepth(+e.target.value);});
+  document.getElementById("dMinus").onclick=function(){setDepth(depth-1);};
+  document.getElementById("dPlus").onclick=function(){setDepth(depth+1);};
+  zb.onclick=function(){
+    zoom=!zoom;zb.classList.toggle("on",zoom);zb.setAttribute("aria-pressed",zoom);
+    zb.textContent=zoom?"Show whole Earth":"Zoom: top 100 km";
+    slider.max=zoom?100:6371;
+    document.getElementById("endR").textContent=zoom?"100 km":"6,371 km";
+    document.getElementById("viewTitle").textContent=zoom?"TOP 100 KM":"CROSS-SECTION OF EARTH";
+    document.getElementById("viewHint").textContent=zoom?"Use − 1 km and + 1 km for exact readings.":"The crust is too thin to see at this scale. Use Zoom to view the top 100 km.";
+    setDepth(Math.min(depth,zoom?100:6371));
+  };
+  document.getElementById("reset").onclick=function(){if(zoom)zb.onclick();setDepth(0);};
+
+  function drawEarth(){
+    var cv=document.getElementById("earth"),a=setup(cv,215),x=a[0],w=a[1],h=a[2];
+    x.clearRect(0,0,w,h);
+    if(!zoom){
+      var R=Math.min(w-40,(h-30)*2)/2,cx=w/2,cy=h-16,k=R/6371;
+      function ring(r,col){x.fillStyle=col;x.beginPath();x.arc(cx,cy,r,Math.PI,2*Math.PI);x.closePath();x.fill();}
+      ring(R,c("--crust"));ring((6371-35)*k,c("--mantle"));ring((6371-2890)*k,c("--outer"));ring((6371-5150)*k,c("--inner"));
+      x.strokeStyle=c("--brown");x.lineWidth=1.5;x.beginPath();x.arc(cx,cy,R,Math.PI,2*Math.PI);x.closePath();x.stroke();
+      x.font="700 12px "+FONT;x.textAlign="center";x.textBaseline="middle";x.fillStyle=c("--brown");
+      var rm=(6371-1450)*k,ro=(6371-4000)*k;
+      x.fillText("MANTLE",cx-rm*0.72,cy-rm*0.69);
+      x.fillText("OUTER CORE",cx-ro*0.70,cy-ro*0.48);
+      x.fillText("INNER",cx,cy-((6371-5760)*k)*0.55);
+      var py=cy-(6371-depth)*k;
+      x.strokeStyle=c("--brown");x.lineWidth=2;x.setLineDash([4,3]);x.beginPath();x.moveTo(cx,cy-R-10);x.lineTo(cx,py);x.stroke();x.setLineDash([]);
+      x.fillStyle=c("--red");x.beginPath();x.arc(cx,py,7,0,7);x.fill();x.strokeStyle="#FFFFFF";x.lineWidth=2;x.stroke();
+    }else{
+      var T=18,B=18,ph=h-T-B,L=64,W=w-L-20;function y(d){return T+d/100*ph;}
+      x.fillStyle=c("--crust");x.fillRect(L,y(0),W,y(35)-y(0));
+      x.fillStyle=c("--mantle");x.fillRect(L,y(35),W,y(100)-y(35));
+      x.font="700 12px "+FONT;x.fillStyle=c("--brown");x.textAlign="left";x.textBaseline="middle";
+      x.fillText("CRUST",L+10,y(17));x.fillText("UPPER MANTLE",L+10,y(67));
+      x.fillStyle=c("--stone");x.textAlign="right";x.font="700 11px "+FONT;
+      for(var d=0;d<=100;d+=10){x.fillText(d+" km",L-6,y(d));x.strokeStyle=c("--rule");x.lineWidth=1;x.beginPath();x.moveTo(L-3,y(d));x.lineTo(L,y(d));x.stroke();}
+      x.strokeStyle=c("--brown");x.lineWidth=2;x.beginPath();x.moveTo(L+W*0.6,y(depth));x.lineTo(L+W,y(depth));x.stroke();
+      x.fillStyle=c("--red");x.beginPath();x.arc(L+W*0.6,y(depth),7,0,7);x.fill();x.strokeStyle="#FFFFFF";x.lineWidth=2;x.stroke();
+    }
+  }
+
+  function drawGraph(){
+    var cv=document.getElementById("graph"),a=setup(cv,150),x=a[0],w=a[1],h=a[2];
+    var L=52,Rp=12,T=10,B=36,pw=w-L-Rp,ph=h-T-B,maxD=zoom?100:6371,maxT=zoom?1400:6000;
+    function px(d){return L+d/maxD*pw;}function py(t){return T+(1-t/maxT)*ph;}
+    x.clearRect(0,0,w,h);x.font="700 11px "+FONT;
+    var tS=zoom?200:1000,dS=zoom?20:1000;
+    x.textAlign="right";x.textBaseline="middle";
+    for(var t=0;t<=maxT;t+=tS){x.strokeStyle="#EFE7D6";x.lineWidth=1;x.beginPath();x.moveTo(L,py(t));x.lineTo(w-Rp,py(t));x.stroke();x.fillStyle=c("--stone");x.fillText(t.toLocaleString(),L-5,py(t));}
+    x.textAlign="center";x.textBaseline="top";
+    for(var d=0;d<=maxD;d+=dS){x.strokeStyle="#EFE7D6";x.beginPath();x.moveTo(px(d),T);x.lineTo(px(d),T+ph);x.stroke();x.fillStyle=c("--stone");x.fillText(d.toLocaleString(),px(d),T+ph+4);}
+    x.fillText("Depth (km)",L+pw/2,T+ph+18);
+    x.save();x.translate(10,T+ph/2);x.rotate(-Math.PI/2);x.textBaseline="middle";x.fillText("°C",0,0);x.restore();
+    x.strokeStyle=c("--brown");x.lineWidth=2.2;x.beginPath();
+    for(var i=0;i<=300;i++){var dd=i/300*maxD;if(i)x.lineTo(px(dd),py(tAt(dd)));else x.moveTo(px(dd),py(tAt(dd)));}x.stroke();
+    x.fillStyle=c("--red");x.beginPath();x.arc(px(depth),py(tAt(depth)),5,0,7);x.fill();
+  }
+
+  function draw(){drawEarth();drawGraph();}
+  var wrap=document.querySelector(".wrap");
+  function fit(){wrap.style.transform="none";wrap.style.marginLeft="0";var s=Math.min(window.innerWidth/wrap.offsetWidth,window.innerHeight/wrap.offsetHeight);wrap.style.transform="scale("+s+")";wrap.style.marginLeft=Math.max(0,(window.innerWidth-wrap.offsetWidth*s)/2)+"px";}
+  window.addEventListener("resize",fit);
+  window.addEventListener("resize",draw);
+  (document.fonts?document.fonts.ready:Promise.resolve()).then(function(){draw();fit();});
+  setDepth(0);fit();
+})();
+</script>
+</body>
+</html>
